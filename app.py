@@ -43,7 +43,7 @@ if 'mqtt_client' not in st.session_state:
     client.on_message = on_message
     try:
         # Replace with your MQTT broker's IP or hostname and port
-        client.connect("your_mqtt_broker_address", 1883, 60)
+        client.connect("your_mqtt_broker_address", 8883, 60)
         client.loop_start() # Start the MQTT client in a non-blocking way
         st.session_state.mqtt_client = client
     except Exception as e:
