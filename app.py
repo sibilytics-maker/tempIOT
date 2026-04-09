@@ -63,4 +63,4 @@ while True:
     
     # This sleep is required to let Streamlit process the UI
     time.sleep(1) 
-2. Verify the JSON Keys on ES
+
