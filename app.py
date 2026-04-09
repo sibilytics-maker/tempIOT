@@ -22,7 +22,7 @@ def on_connect(client, userdata, flags, rc):
     if rc == 0:
         st.success("Connected to MQTT Broker!")
         # IMPORTANT: Subscribe to your desired topic here
-        client.subscribe("esp32/data") # <--- Replace "esp32/data" with your actual MQTT topic
+        client.subscribe("temperature/data") # <--- Replace "esp32/data" with your actual MQTT topic
     else:
         st.error(f"Failed to connect, return code {rc}\n")
 
