@@ -3,37 +3,47 @@ import paho.mqtt.client as mqtt
 import json
 import pandas as pd
 import time
-from collections import deque
+from queue import Queue
 
-# --- CONFIG ---
-# Ensure these match your HiveMQ dashboard EXACTLY
+# --- CONFIGURATION ---
 MQTT_BROKER = "93be88c856bc40329b96e8fba46ac044.s1.eu.hivemq.cloud"
 MQTT_USER = "kundan"
 MQTT_PASS = "Kundan@1985"
 TOPIC = "temperature/data"
 
-# --- Streamlit Session State ---
-if 'x_data' not in st.session_state:
-    st.session_state.x_data = deque(maxlen=50)
-if 'g_data' not in st.session_state:
-    st.session_state.g_data = deque(maxlen=50)
+# 1. Thread-safe Data Queue
+if "data_queue" not in st.session_state:
+    st.session_state.data_queue = Queue()
 
-# --- MQTT Callbacks ---
+if "history" not in st.session_state:
+    st.session_state.history = []
+
+# --- MQTT CALLBACK ---
 def on_message(client, userdata, msg):
     try:
         payload = json.loads(msg.payload.decode())
-        # We use .get(key, default) to prevent crashes if a key is missing
-        st.session_state.x_data.append(payload.get("X", 0))
-        st.session_state.g_data.append(payload.get("G", 0))
+        # We put data into a queue because background threads 
+        # cannot touch st.session_state directly in Streamlit
+        userdata['queue'].put({
+            "Value X [µm]": payload.get("X", 0),
+            "Gray [µm]": payload.get("G", 0)
+        })
     except Exception as e:
-        print(f"Error parsing: {e}")
+        print(f"MQTT Error: {e}")
 
-# --- MQTT Client Setup (Singleton pattern for Streamlit) ---
-if 'mqtt_client' not in st.session_state:
-    # Use newer Callback API Version
-    client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
+# --- UI SETUP ---
+st.set_page_config(page_title="Precision Monitor", layout="wide")
+st.title("🔬 Live Precision Measurement Dashboard")
+
+chart_place = st.empty()
+table_place = st.empty()
+
+# --- MQTT CLIENT SETUP ---
+if "mqtt_client" not in st.session_state:
+    # Pass the queue into userdata so the callback can find it
+    client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2, userdata={'queue': st.session_state.data_queue})
     client.username_pw_set(MQTT_USER, MQTT_PASS)
-    client.tls_set() # Mandatory for HiveMQ Cloud
+    client.tls_set()
     client.on_message = on_message
     
     try:
@@ -41,26 +51,30 @@ if 'mqtt_client' not in st.session_state:
         client.subscribe(TOPIC)
         client.loop_start()
         st.session_state.mqtt_client = client
-        st.success("Successfully connected to HiveMQ Cloud!")
+        st.success("Successfully connected to HiveMQ Cloud! ✅")
     except Exception as e:
-        st.error(f"Connection Failed: {e}")
+        st.error(f"Connection failed: {e}")
 
-# --- UI ---
-st.title("🔬 Precision Measurement Monitor")
-chart_placeholder = st.empty()
-table_placeholder = st.empty()
-
+# --- REFRESH LOOP ---
 while True:
-    if len(st.session_state.x_data) > 0:
-        # We use a container to ensure the chart stays in one place
-        with chart_placeholder.container():
-            df = pd.DataFrame({
-                "Value X [µm]": list(st.session_state.x_data),
-                "Gray [µm]": list(st.session_state.g_data)
-            })
-            st.line_chart(df)
-            st.table(df.tail(5)) # Display the table like your Excel sheet
-    
-    # This sleep is required to let Streamlit process the UI
-    time.sleep(1) 
+    # 2. Pull all available data from the thread-safe queue into history
+    new_data = False
+    while not st.session_state.data_queue.empty():
+        item = st.session_state.data_queue.get()
+        st.session_state.history.append(item)
+        if len(st.session_state.history) > 100: # Limit history
+            st.session_state.history.pop(0)
+        new_data = True
 
+    # 3. Update the UI if we have data
+    if st.session_state.history:
+        df = pd.DataFrame(st.session_state.history)
+        
+        with chart_place.container():
+            st.line_chart(df)
+            
+        with table_place.container():
+            st.write("### Latest Measurements (µm)")
+            st.table(df.tail(10)) # Matches your Excel table view
+
+    time.sleep(1)
