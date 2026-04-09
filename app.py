@@ -52,10 +52,15 @@ table_placeholder = st.empty()
 
 while True:
     if len(st.session_state.x_data) > 0:
-        df = pd.DataFrame({
-            "Value X [µm]": list(st.session_state.x_data),
-            "Gray [µm]": list(st.session_state.g_data)
-        })
-        chart_placeholder.line_chart(df)
-        table_placeholder.table(df.tail(5))
-    time.sleep(1)
+        # We use a container to ensure the chart stays in one place
+        with chart_placeholder.container():
+            df = pd.DataFrame({
+                "Value X [µm]": list(st.session_state.x_data),
+                "Gray [µm]": list(st.session_state.g_data)
+            })
+            st.line_chart(df)
+            st.table(df.tail(5)) # Display the table like your Excel sheet
+    
+    # This sleep is required to let Streamlit process the UI
+    time.sleep(1) 
+2. Verify the JSON Keys on ES
