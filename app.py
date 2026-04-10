@@ -72,29 +72,28 @@ while True:
         if len(st.session_state.history) > 50:
             st.session_state.history.pop(0)
 
-    if st.session_state.history:
+       if st.session_state.history:
         df = pd.DataFrame(st.session_state.history)
         
+        # Create the area chart
         fig = px.area(
             df, 
             y="Temperature", 
             line_shape='spline'
         )
         
-                # This update ensures markers are visible and rounded
+        # Style: Lines + Large Orange Circles
         fig.update_traces(
-            mode='lines+markers', # This line is critical to show the round tips
-            fill='tozeroy',
+            mode='lines+markers',
             fillcolor='rgba(0, 100, 250, 0.2)',
             line=dict(color='rgba(0, 100, 250, 0.8)', width=3),
             marker=dict(
-                size=10, 
+                size=14,           # Large size
                 symbol='circle', 
-                color='rgba(0, 100, 250, 1)', # Solid blue for the round tip
-                line=dict(width=2, color='White') # White border makes the tip pop
+                color='Orange',    # Orange fill
+                line=dict(width=2, color='White') # White border to make it pop
             )
         )
-
         
         fig.update_layout(
             margin=dict(l=20, r=20, t=30, b=20),
@@ -104,9 +103,10 @@ while True:
         )
 
         with chart_place.container():
-            # Added a unique key using a counter to prevent the DuplicateElementId error
+            # Keep the unique key to avoid the DuplicateElementId error
             st.plotly_chart(fig, use_container_width=True, key=f"temp_chart_{chart_count}")
             chart_count += 1
+
             
         with table_place.container():
             st.write("### Latest Measurements")
