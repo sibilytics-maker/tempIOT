@@ -57,6 +57,12 @@ while True:
         df = pd.DataFrame(st.session_state.history)
         current_temp = df["Temperature"].iloc[-1]
         
+        # --- DYNAMIC ADJUSTMENT ---
+        # This calculates the min/max of current data to zoom in
+        min_temp = df["Temperature"].min()
+        max_temp = df["Temperature"].max()
+        buffer = 0.2 # Small gap so line doesn't hit top/bottom
+        
         # --- SHOW METRIC ---
         with metric_placeholder.container():
             st.metric(label="Latest Reading", value=f"{current_temp:.2f} °C")
@@ -79,7 +85,14 @@ while True:
             plot_bgcolor='white',
             paper_bgcolor='white',
             xaxis=dict(title="Time (Samples)", showgrid=False, linecolor='lightgray'),
-            yaxis=dict(title="Temperature (°C)", showgrid=True, gridcolor='#f1f5f9', zeroline=False),
+            # THIS IS THE ADJUSTMENT:
+            yaxis=dict(
+                title="Temperature (°C)", 
+                showgrid=True, 
+                gridcolor='#f1f5f9', 
+                zeroline=False,
+                range=[min_temp - buffer, max_temp + buffer] # Auto-Zooms!
+            ),
         )
 
         with chart_place.container():
