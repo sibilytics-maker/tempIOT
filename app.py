@@ -16,6 +16,12 @@ params = st.query_params
 device_id = params.get("device", "sibiot233") 
 
 st.set_page_config(page_title=f"Monitor: {device_id}", layout="centered")
+st.markdown("""
+    <style>
+    .block-container { padding-top: 1rem; }
+    </style>
+""", unsafe_allow_html=True)
+
 
 # --- UI HEADER ---
 st.title(f"🌡️ {device_id}")
@@ -81,7 +87,7 @@ while True:
         
         fig.update_layout(
             hovermode="x unified",
-            height=400, # This forces the chart to fit in the window
+            height=300, # This forces the chart to fit in the window
             margin=dict(l=20, r=20, t=20, b=20),
             plot_bgcolor='white',
             paper_bgcolor='white',
