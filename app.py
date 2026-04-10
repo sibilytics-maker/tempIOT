@@ -61,6 +61,7 @@ if "mqtt_client" not in st.session_state:
         st.error(f"Connection failed: {e}")
 
 # --- REFRESH LOOP ---
+
 chart_count = 0
 
 while True:
@@ -73,22 +74,28 @@ while True:
     if st.session_state.history:
         df = pd.DataFrame(st.session_state.history)
         
-        # Create Area Chart
-        fig = px.area(df, y="Temperature", line_shape='spline')
+        # 1. Use line instead of area to stop forcing the Y-axis to 0
+        fig = px.line(df, y="Temperature", render_mode='svg')
         
-        # Style: Lines + Large Orange Circles
+        # 2. Re-add the filled area manually with transparency
         fig.update_traces(
             mode='lines+markers',
+            fill='tozeroy', # Fill to zero but we will zoom the axis
             fillcolor='rgba(0, 100, 250, 0.2)',
             line=dict(color='rgba(0, 100, 250, 0.8)', width=3),
             marker=dict(
-                size=14,           # Big circle size
+                size=14,
                 symbol='circle', 
-                color='Orange',    # Orange fill
-                line=dict(width=2, color='White') # White border
+                color='Orange',
+                line=dict(width=2, color='White')
             )
         )
         
+        # 3. FORCE THE Y-AXIS ZOOM
+        # We calculate the min and max of your data and add a tiny margin
+        y_min = df["Temperature"].min() - 0.2
+        y_max = df["Temperature"].max() + 0.2
+
         fig.update_layout(
             margin=dict(l=20, r=20, t=30, b=20),
             plot_bgcolor='rgba(0,0,0,0)',
@@ -96,12 +103,9 @@ while True:
             yaxis=dict(
                 showgrid=True, 
                 gridcolor='lightgray',
-                # This ensures the Y-axis zooms in on the data points
-                # instead of starting at zero.
-                autorange=True, 
-                fixedrange=False
-            ),
-            xaxis=dict(autorange=True)
+                range=[y_min, y_max], # THIS FORCES THE ZOOM
+                autorange=False      # Disable auto to use our custom range
+            )
         )
 
         with chart_place.container():
