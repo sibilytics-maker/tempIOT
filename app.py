@@ -19,14 +19,20 @@ if "data_queue" not in st.session_state:
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# --- MQTT CALLBACK ---
+# --- MQTT CALLBACKS ---
 def on_message(client, userdata, msg):
     try:
         payload = json.loads(msg.payload.decode())
         val = float(payload.get("temperature", 0.0))
         userdata['queue'].put({"Temperature": val})
     except Exception as e:
-        print(f"MQTT Error: {e}")
+        print(f"MQTT Parsing Error: {e}")
+
+def on_connect(client, userdata, flags, rc, properties=None):
+    if rc == 0:
+        print("Connected to HiveMQ successfully! ✅")
+    else:
+        print(f"Failed to connect, return code {rc}")
 
 # --- UI SETUP ---
 st.set_page_config(page_title="Temperature Monitor", layout="wide")
@@ -37,9 +43,15 @@ table_place = st.empty()
 
 # --- MQTT CLIENT SETUP ---
 if "mqtt_client" not in st.session_state:
-    client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2, userdata={'queue': st.session_state.data_queue})
+    client = mqtt.Client(
+        callback_api_version=mqtt.CallbackAPIVersion.VERSION2, 
+        userdata={'queue': st.session_state.data_queue}
+    )
     client.username_pw_set(MQTT_USER, MQTT_PASS)
     client.tls_set()
+    
+    # Assign callbacks
+    client.on_connect = on_connect
     client.on_message = on_message
     
     try:
@@ -61,7 +73,7 @@ while True:
     if st.session_state.history:
         df = pd.DataFrame(st.session_state.history)
         
-        # Plotly configuration for transparency and markers
+        # Plotly configuration
         fig = px.area(
             df, 
             y="Temperature", 
