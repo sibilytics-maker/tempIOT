@@ -11,8 +11,8 @@ MQTT_BROKER = "93be88c856bc40329b96e8fba46ac044.s1.eu.hivemq.cloud"
 MQTT_USER = "kundan"
 MQTT_PASS = "Kundan@1985"
 
-# --- DEVICE NAME LOGIC ---
-# If you don't put ?device=... in the URL, it now defaults to sibiot233
+# --- CRITICAL: HARDCODED DEFAULT ---
+# If URL has no ?device=..., it defaults to sibiot233
 params = st.query_params
 device_id = params.get("device", "sibiot233") 
 
@@ -36,7 +36,7 @@ if "mqtt_client" not in st.session_state:
     client.tls_set()
     client.on_message = on_message
     client.connect(MQTT_BROKER, 8883)
-    # The app will now subscribe to the topic matching the device name
+    # This now subscribes to temperature/sibiot233
     client.subscribe(f"temperature/{device_id}")
     client.loop_start()
     st.session_state.mqtt_client = client
