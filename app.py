@@ -16,7 +16,7 @@ if "data_queue" not in st.session_state:
     st.session_state.data_queue = Queue()
 
 if "history" not in st.session_state:
-    st.session_state.history = []
+    st.session_state.history =[]
 
 # --- MQTT CALLBACK ---
 def on_message(client, userdata, msg):
@@ -25,15 +25,14 @@ def on_message(client, userdata, msg):
         # We put data into a queue because background threads 
         # cannot touch st.session_state directly in Streamlit
         userdata['queue'].put({
-            "Value X [µm]": payload.get("X", 0),
-            "Gray [µm]": payload.get("G", 0)
+            "Temperature (°C)": payload.get("temperature", 0.0)
         })
     except Exception as e:
         print(f"MQTT Error: {e}")
 
 # --- UI SETUP ---
-st.set_page_config(page_title="Precision Monitor", layout="wide")
-st.title("🔬 Live Precision Measurement Dashboard")
+st.set_page_config(page_title="Temperature Monitor", layout="wide")
+st.title("🌡️ Live Temperature Dashboard")
 
 chart_place = st.empty()
 table_place = st.empty()
@@ -74,7 +73,7 @@ while True:
             st.line_chart(df)
             
         with table_place.container():
-            st.write("### Latest Measurements (µm)")
-            st.table(df.tail(10)) # Matches your Excel table view
+            st.write("### Latest Measurements (°C)")
+            st.table(df.tail(10))
 
     time.sleep(1)
