@@ -1,6 +1,5 @@
 import streamlit as st
 import paho.mqtt.client as mqtt
-import json
 import pandas as pd
 import time
 from queue import Queue
@@ -18,12 +17,14 @@ st.set_page_config(page_title="Temperature Monitor", layout="centered")
 params = st.query_params
 device_id = params.get("device", "sibiot233") 
 
-# --- UI LAYOUT ---
-# Using columns to center everything
+# --- UI LAYOUT (DEFINED ONCE) ---
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
     st.title(f"🌡️ {device_id}")
     st.markdown("---")
+    # Define placeholders here, OUTSIDE the loop
+    metric_placeholder = st.empty()
+    chart_placeholder = st.empty()
 
 if "data_queue" not in st.session_state: st.session_state.data_queue = Queue()
 if "history" not in st.session_state: st.session_state.history = []
@@ -46,9 +47,7 @@ if "mqtt_client" not in st.session_state:
     client.loop_start()
     st.session_state.mqtt_client = client
 
-chart_place = st.empty()
-chart_count = 0
-
+# --- REFRESH LOOP ---
 while True:
     while not st.session_state.data_queue.empty():
         item = st.session_state.data_queue.get()
@@ -59,16 +58,16 @@ while True:
         df = pd.DataFrame(st.session_state.history)
         current_temp = df["Temperature"].iloc[-1]
         
-        # --- CALCULATE ZOOM ---
-        # Add a buffer of 0.2 degrees above and below the min/max
+        # Calculate zoomed range
         min_temp = df["Temperature"].min()
         max_temp = df["Temperature"].max()
         buffer = 0.2 
         
-        # --- RE-RENDER ---
-        with col2: # Ensure it renders inside the centered column
+        # --- UPDATE CONTAINERS (NO STACKING) ---
+        with metric_placeholder.container():
             st.metric(label="Latest Reading", value=f"{current_temp:.2f} °C")
             
+        with chart_placeholder.container():
             fig = go.Figure()
             fig.add_trace(go.Scatter(
                 y=df["Temperature"],
@@ -89,11 +88,9 @@ while True:
                     title="Temperature (°C)", 
                     showgrid=True, 
                     gridcolor='#f1f5f9',
-                    # FORCE THE RANGE HERE
-                    range=[min_temp - buffer, max_temp + buffer] 
+                    range=[min_temp - buffer, max_temp + buffer] # Zoomed
                 ),
             )
-            st.plotly_chart(fig, use_container_width=True, key=f"t_{chart_count}")
-            chart_count += 1
+            st.plotly_chart(fig, use_container_width=True)
             
     time.sleep(1)
