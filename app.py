@@ -11,10 +11,10 @@ MQTT_BROKER = "93be88c856bc40329b96e8fba46ac044.s1.eu.hivemq.cloud"
 MQTT_USER = "kundan"
 MQTT_PASS = "Kundan@1985"
 
-# --- DEVICE ID FROM URL ---
-# Open your app like this: your-app.railway.app/?device=sibiot233
+# --- DEVICE NAME LOGIC ---
+# If you don't put ?device=... in the URL, it now defaults to sibiot233
 params = st.query_params
-device_id = params.get("device", "default_device")
+device_id = params.get("device", "sibiot233") 
 
 st.set_page_config(page_title=f"Monitor: {device_id}", layout="wide")
 st.title(f"🌡️ Temperature Monitor: {device_id}")
@@ -36,7 +36,8 @@ if "mqtt_client" not in st.session_state:
     client.tls_set()
     client.on_message = on_message
     client.connect(MQTT_BROKER, 8883)
-    client.subscribe(f"temperature/{device_id}") # Subscribe to device specific topic
+    # The app will now subscribe to the topic matching the device name
+    client.subscribe(f"temperature/{device_id}")
     client.loop_start()
     st.session_state.mqtt_client = client
 
@@ -51,9 +52,6 @@ while True:
 
     if st.session_state.history:
         df = pd.DataFrame(st.session_state.history)
-        
-        # --- THE FIX: CALCULATE ZOOM RANGE ---
-        # Add a small buffer (0.5) so the line isn't touching the top/bottom
         y_min = df["Temperature"].min() - 0.5
         y_max = df["Temperature"].max() + 0.5
 
@@ -61,21 +59,16 @@ while True:
         fig.add_trace(go.Scatter(
             y=df["Temperature"],
             mode='lines+markers',
-            fill='tozeroy', 
+            fill='tozeroy',
             fillcolor='rgba(0, 100, 250, 0.15)',
             line=dict(color='rgba(0, 100, 250, 0.8)', width=3),
             marker=dict(size=14, color='Orange', line=dict(width=2, color='White'))
         ))
         
-        # --- THE FIX: APPLY ZOOM ---
         fig.update_layout(
             plot_bgcolor='rgba(0,0,0,0)',
             paper_bgcolor='rgba(0,0,0,0)',
-            yaxis=dict(
-                showgrid=True, 
-                gridcolor='lightgray',
-                range=[y_min, y_max]  # This forces the chart to zoom!
-            )
+            yaxis=dict(showgrid=True, gridcolor='lightgray', range=[y_min, y_max])
         )
 
         with chart_place.container():
