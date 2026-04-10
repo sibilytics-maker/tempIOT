@@ -72,7 +72,7 @@ while True:
         if len(st.session_state.history) > 50:
             st.session_state.history.pop(0)
 
-       if st.session_state.history:
+     if st.session_state.history:
         df = pd.DataFrame(st.session_state.history)
         
         # Create the area chart
@@ -107,7 +107,6 @@ while True:
             st.plotly_chart(fig, use_container_width=True, key=f"temp_chart_{chart_count}")
             chart_count += 1
 
-            
         with table_place.container():
             st.write("### Latest Measurements")
             st.table(df.tail(5))
