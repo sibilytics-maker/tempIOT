@@ -4,116 +4,81 @@ import json
 import pandas as pd
 import time
 from queue import Queue
-import plotly.express as px
+import plotly.graph_objects as go
 
 # --- CONFIGURATION ---
 MQTT_BROKER = "93be88c856bc40329b96e8fba46ac044.s1.eu.hivemq.cloud"
 MQTT_USER = "kundan"
 MQTT_PASS = "Kundan@1985"
-TOPIC = "temperature/data"
 
-# --- SESSION STATE ---
-if "data_queue" not in st.session_state:
-    st.session_state.data_queue = Queue()
+# --- DEVICE ID FROM URL ---
+# Open your app like this: your-app.railway.app/?device=sibiot233
+params = st.query_params
+device_id = params.get("device", "default_device")
 
-if "history" not in st.session_state:
-    st.session_state.history = []
+st.set_page_config(page_title=f"Monitor: {device_id}", layout="wide")
+st.title(f"🌡️ Temperature Monitor: {device_id}")
 
-# --- MQTT CALLBACKS ---
+if "data_queue" not in st.session_state: st.session_state.data_queue = Queue()
+if "history" not in st.session_state: st.session_state.history = []
+
 def on_message(client, userdata, msg):
     try:
         payload = json.loads(msg.payload.decode())
         val = float(payload.get("temperature", 0.0))
         userdata['queue'].put({"Temperature": val})
-    except Exception as e:
-        print(f"MQTT Parsing Error: {e}")
+    except: pass
 
-def on_connect(client, userdata, flags, rc, properties=None):
-    if rc == 0:
-        print("Connected to HiveMQ successfully! ✅")
-    else:
-        print(f"Failed to connect, return code {rc}")
-
-# --- UI SETUP ---
-st.set_page_config(page_title="Temperature Monitor", layout="wide")
-st.title("🌡️ Live Temperature Monitor")
-
-chart_place = st.empty()
-table_place = st.empty()
-
-# --- MQTT CLIENT SETUP ---
+# --- MQTT SETUP ---
 if "mqtt_client" not in st.session_state:
-    client = mqtt.Client(
-        callback_api_version=mqtt.CallbackAPIVersion.VERSION2, 
-        userdata={'queue': st.session_state.data_queue}
-    )
+    client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2, userdata={'queue': st.session_state.data_queue})
     client.username_pw_set(MQTT_USER, MQTT_PASS)
     client.tls_set()
-    client.on_connect = on_connect
     client.on_message = on_message
-    
-    try:
-        client.connect(MQTT_BROKER, 8883)
-        client.subscribe(TOPIC)
-        client.loop_start()
-        st.session_state.mqtt_client = client
-    except Exception as e:
-        st.error(f"Connection failed: {e}")
+    client.connect(MQTT_BROKER, 8883)
+    client.subscribe(f"temperature/{device_id}") # Subscribe to device specific topic
+    client.loop_start()
+    st.session_state.mqtt_client = client
 
-# --- REFRESH LOOP ---
-
+chart_place = st.empty()
 chart_count = 0
 
 while True:
     while not st.session_state.data_queue.empty():
         item = st.session_state.data_queue.get()
         st.session_state.history.append(item)
-        if len(st.session_state.history) > 50:
-            st.session_state.history.pop(0)
+        if len(st.session_state.history) > 50: st.session_state.history.pop(0)
 
     if st.session_state.history:
         df = pd.DataFrame(st.session_state.history)
         
-        # 1. Use line instead of area to stop forcing the Y-axis to 0
-        fig = px.line(df, y="Temperature", render_mode='svg')
-        
-        # 2. Re-add the filled area manually with transparency
-        fig.update_traces(
-            mode='lines+markers',
-            fill='tozeroy', # Fill to zero but we will zoom the axis
-            fillcolor='rgba(0, 100, 250, 0.2)',
-            line=dict(color='rgba(0, 100, 250, 0.8)', width=3),
-            marker=dict(
-                size=14,
-                symbol='circle', 
-                color='Orange',
-                line=dict(width=2, color='White')
-            )
-        )
-        
-        # 3. FORCE THE Y-AXIS ZOOM
-        # We calculate the min and max of your data and add a tiny margin
-        y_min = df["Temperature"].min() - 0.2
-        y_max = df["Temperature"].max() + 0.2
+        # --- THE FIX: CALCULATE ZOOM RANGE ---
+        # Add a small buffer (0.5) so the line isn't touching the top/bottom
+        y_min = df["Temperature"].min() - 0.5
+        y_max = df["Temperature"].max() + 0.5
 
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            y=df["Temperature"],
+            mode='lines+markers',
+            fill='tozeroy', 
+            fillcolor='rgba(0, 100, 250, 0.15)',
+            line=dict(color='rgba(0, 100, 250, 0.8)', width=3),
+            marker=dict(size=14, color='Orange', line=dict(width=2, color='White'))
+        ))
+        
+        # --- THE FIX: APPLY ZOOM ---
         fig.update_layout(
-            margin=dict(l=20, r=20, t=30, b=20),
             plot_bgcolor='rgba(0,0,0,0)',
             paper_bgcolor='rgba(0,0,0,0)',
             yaxis=dict(
                 showgrid=True, 
                 gridcolor='lightgray',
-                range=[y_min, y_max], # THIS FORCES THE ZOOM
-                autorange=False      # Disable auto to use our custom range
+                range=[y_min, y_max]  # This forces the chart to zoom!
             )
         )
 
         with chart_place.container():
-            st.plotly_chart(fig, use_container_width=True, key=f"temp_chart_{chart_count}")
+            st.plotly_chart(fig, use_container_width=True, key=f"t_{chart_count}")
             chart_count += 1
-            
-        with table_place.container():
-            st.write("### Latest Measurements")
-            st.table(df.tail(5))
-
     time.sleep(1)
