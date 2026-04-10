@@ -36,7 +36,7 @@ def on_connect(client, userdata, flags, rc, properties=None):
 
 # --- UI SETUP ---
 st.set_page_config(page_title="Temperature Monitor", layout="wide")
-st.title("Temperature Monitor")
+st.title("🌡️ Live Temperature Monitor")
 
 chart_place = st.empty()
 table_place = st.empty()
@@ -49,8 +49,6 @@ if "mqtt_client" not in st.session_state:
     )
     client.username_pw_set(MQTT_USER, MQTT_PASS)
     client.tls_set()
-    
-    # Assign callbacks
     client.on_connect = on_connect
     client.on_message = on_message
     
@@ -63,7 +61,7 @@ if "mqtt_client" not in st.session_state:
         st.error(f"Connection failed: {e}")
 
 # --- REFRESH LOOP ---
-chart_count = 0 # Counter for unique keys
+chart_count = 0
 
 while True:
     while not st.session_state.data_queue.empty():
@@ -72,15 +70,11 @@ while True:
         if len(st.session_state.history) > 50:
             st.session_state.history.pop(0)
 
-     if st.session_state.history:
+    if st.session_state.history:
         df = pd.DataFrame(st.session_state.history)
         
-        # Create the area chart
-        fig = px.area(
-            df, 
-            y="Temperature", 
-            line_shape='spline'
-        )
+        # Create Area Chart
+        fig = px.area(df, y="Temperature", line_shape='spline')
         
         # Style: Lines + Large Orange Circles
         fig.update_traces(
@@ -88,10 +82,10 @@ while True:
             fillcolor='rgba(0, 100, 250, 0.2)',
             line=dict(color='rgba(0, 100, 250, 0.8)', width=3),
             marker=dict(
-                size=14,           # Large size
+                size=14,           # Big circle size
                 symbol='circle', 
                 color='Orange',    # Orange fill
-                line=dict(width=2, color='White') # White border to make it pop
+                line=dict(width=2, color='White') # White border
             )
         )
         
@@ -103,10 +97,9 @@ while True:
         )
 
         with chart_place.container():
-            # Keep the unique key to avoid the DuplicateElementId error
             st.plotly_chart(fig, use_container_width=True, key=f"temp_chart_{chart_count}")
             chart_count += 1
-
+            
         with table_place.container():
             st.write("### Latest Measurements")
             st.table(df.tail(5))
