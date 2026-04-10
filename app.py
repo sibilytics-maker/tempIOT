@@ -11,13 +11,15 @@ MQTT_BROKER = "93be88c856bc40329b96e8fba46ac044.s1.eu.hivemq.cloud"
 MQTT_USER = "kundan"
 MQTT_PASS = "Kundan@1985"
 
-# --- CRITICAL: HARDCODED DEFAULT ---
-# If URL has no ?device=..., it defaults to sibiot233
+# --- DEVICE NAME LOGIC ---
 params = st.query_params
 device_id = params.get("device", "sibiot233") 
 
-st.set_page_config(page_title=f"Monitor: {device_id}", layout="wide")
-st.title(f"🌡️ Temperature Monitor: {device_id}")
+st.set_page_config(page_title=f"Monitor: {device_id}", layout="centered")
+
+# --- UI HEADER ---
+st.title(f"🌡️ {device_id}")
+st.markdown("---")
 
 if "data_queue" not in st.session_state: st.session_state.data_queue = Queue()
 if "history" not in st.session_state: st.session_state.history = []
@@ -36,11 +38,12 @@ if "mqtt_client" not in st.session_state:
     client.tls_set()
     client.on_message = on_message
     client.connect(MQTT_BROKER, 8883)
-    # This now subscribes to temperature/sibiot233
     client.subscribe(f"temperature/{device_id}")
     client.loop_start()
     st.session_state.mqtt_client = client
 
+# --- METRIC CARD CONTAINER ---
+metric_placeholder = st.empty()
 chart_place = st.empty()
 chart_count = 0
 
@@ -52,26 +55,35 @@ while True:
 
     if st.session_state.history:
         df = pd.DataFrame(st.session_state.history)
-        y_min = df["Temperature"].min() - 0.5
-        y_max = df["Temperature"].max() + 0.5
-
+        current_temp = df["Temperature"].iloc[-1]
+        
+        # --- SHOW METRIC ---
+        with metric_placeholder.container():
+            st.metric(label="Latest Reading", value=f"{current_temp:.2f} °C")
+            
+        # --- PROFESSIONAL CHART ---
         fig = go.Figure()
         fig.add_trace(go.Scatter(
             y=df["Temperature"],
             mode='lines+markers',
+            name="Temp",
             fill='tozeroy',
-            fillcolor='rgba(0, 100, 250, 0.15)',
-            line=dict(color='rgba(0, 100, 250, 0.8)', width=3),
-            marker=dict(size=14, color='Orange', line=dict(width=2, color='White'))
+            fillcolor='rgba(59, 130, 246, 0.1)',
+            line=dict(color='#3b82f6', width=3),
+            marker=dict(size=10, color='#f59e0b', line=dict(width=2, color='white'))
         ))
         
         fig.update_layout(
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            yaxis=dict(showgrid=True, gridcolor='lightgray', range=[y_min, y_max])
+            hovermode="x unified",
+            margin=dict(l=20, r=20, t=20, b=20),
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            xaxis=dict(title="Time (Samples)", showgrid=False, linecolor='lightgray'),
+            yaxis=dict(title="Temperature (°C)", showgrid=True, gridcolor='#f1f5f9', zeroline=False),
         )
 
         with chart_place.container():
             st.plotly_chart(fig, use_container_width=True, key=f"t_{chart_count}")
             chart_count += 1
+            
     time.sleep(1)
