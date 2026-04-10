@@ -12,12 +12,14 @@ MQTT_USER = "kundan"
 MQTT_PASS = "Kundan@1985"
 TOPIC = "temperature/data"
 
+# --- SESSION STATE ---
 if "data_queue" not in st.session_state:
     st.session_state.data_queue = Queue()
 
 if "history" not in st.session_state:
     st.session_state.history = []
 
+# --- MQTT CALLBACK ---
 def on_message(client, userdata, msg):
     try:
         payload = json.loads(msg.payload.decode())
@@ -26,18 +28,20 @@ def on_message(client, userdata, msg):
     except Exception as e:
         print(f"MQTT Error: {e}")
 
+# --- UI SETUP ---
 st.set_page_config(page_title="Temperature Monitor", layout="wide")
-st.title("🌡️ Live Temperature")
+st.title("Temperature Monitor")
 
 chart_place = st.empty()
 table_place = st.empty()
 
-# --- MQTT SETUP ---
+# --- MQTT CLIENT SETUP ---
 if "mqtt_client" not in st.session_state:
     client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2, userdata={'queue': st.session_state.data_queue})
     client.username_pw_set(MQTT_USER, MQTT_PASS)
     client.tls_set()
     client.on_message = on_message
+    
     try:
         client.connect(MQTT_BROKER, 8883)
         client.subscribe(TOPIC)
@@ -57,18 +61,17 @@ while True:
     if st.session_state.history:
         df = pd.DataFrame(st.session_state.history)
         
-        # --- CUSTOM PLOTLY CHART ---
+        # Plotly configuration for transparency and markers
         fig = px.area(
             df, 
             y="Temperature", 
-            line_shape='spline', # Makes the lines smooth
+            line_shape='spline'
         )
         
-        # Style: Transparent blue fill (0.2 opacity), visible markers
         fig.update_traces(
-            fillcolor='rgba(0, 100, 250, 0.2)', # Blue with 20% opacity
+            fillcolor='rgba(0, 100, 250, 0.2)',
             line=dict(color='rgba(0, 100, 250, 0.8)', width=3),
-            marker=dict(size=8, symbol='circle') # Round markers on the tips
+            marker=dict(size=8, symbol='circle')
         )
         
         fig.update_layout(
