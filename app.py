@@ -4,6 +4,7 @@ import json
 import pandas as pd
 import time
 from queue import Queue
+import plotly.express as px
 
 # --- CONFIGURATION ---
 MQTT_BROKER = "93be88c856bc40329b96e8fba46ac044.s1.eu.hivemq.cloud"
@@ -20,7 +21,6 @@ if "history" not in st.session_state:
 def on_message(client, userdata, msg):
     try:
         payload = json.loads(msg.payload.decode())
-        # Ensure we are actually receiving numbers
         val = float(payload.get("temperature", 0.0))
         userdata['queue'].put({"Temperature": val})
     except Exception as e:
@@ -29,16 +29,15 @@ def on_message(client, userdata, msg):
 st.set_page_config(page_title="Temperature Monitor", layout="wide")
 st.title("🌡️ Live Temperature")
 
-# Using empty containers for dynamic updates
 chart_place = st.empty()
 table_place = st.empty()
 
+# --- MQTT SETUP ---
 if "mqtt_client" not in st.session_state:
     client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2, userdata={'queue': st.session_state.data_queue})
     client.username_pw_set(MQTT_USER, MQTT_PASS)
     client.tls_set()
     client.on_message = on_message
-    
     try:
         client.connect(MQTT_BROKER, 8883)
         client.subscribe(TOPIC)
@@ -49,24 +48,41 @@ if "mqtt_client" not in st.session_state:
 
 # --- REFRESH LOOP ---
 while True:
-    new_data = False
     while not st.session_state.data_queue.empty():
         item = st.session_state.data_queue.get()
         st.session_state.history.append(item)
-        if len(st.session_state.history) > 50: # Keep last 50 points
+        if len(st.session_state.history) > 50:
             st.session_state.history.pop(0)
-        new_data = True
 
     if st.session_state.history:
         df = pd.DataFrame(st.session_state.history)
         
+        # --- CUSTOM PLOTLY CHART ---
+        fig = px.area(
+            df, 
+            y="Temperature", 
+            line_shape='spline', # Makes the lines smooth
+        )
+        
+        # Style: Transparent blue fill (0.2 opacity), visible markers
+        fig.update_traces(
+            fillcolor='rgba(0, 100, 250, 0.2)', # Blue with 20% opacity
+            line=dict(color='rgba(0, 100, 250, 0.8)', width=3),
+            marker=dict(size=8, symbol='circle') # Round markers on the tips
+        )
+        
+        fig.update_layout(
+            margin=dict(l=20, r=20, t=30, b=20),
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            yaxis=dict(showgrid=True, gridcolor='lightgray')
+        )
+
         with chart_place.container():
-            # line_chart is better for "spikes" than area_chart
-            # it auto-scales the Y-axis to your data range
-            st.line_chart(df, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True)
             
         with table_place.container():
-            st.write("### Recent Data")
+            st.write("### Latest Measurements")
             st.table(df.tail(5))
 
     time.sleep(1)
