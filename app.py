@@ -63,6 +63,8 @@ if "mqtt_client" not in st.session_state:
         st.error(f"Connection failed: {e}")
 
 # --- REFRESH LOOP ---
+chart_count = 0 # Counter for unique keys
+
 while True:
     while not st.session_state.data_queue.empty():
         item = st.session_state.data_queue.get()
@@ -73,7 +75,6 @@ while True:
     if st.session_state.history:
         df = pd.DataFrame(st.session_state.history)
         
-        # Plotly configuration
         fig = px.area(
             df, 
             y="Temperature", 
@@ -94,7 +95,9 @@ while True:
         )
 
         with chart_place.container():
-            st.plotly_chart(fig, use_container_width=True)
+            # Added a unique key using a counter to prevent the DuplicateElementId error
+            st.plotly_chart(fig, use_container_width=True, key=f"temp_chart_{chart_count}")
+            chart_count += 1
             
         with table_place.container():
             st.write("### Latest Measurements")
