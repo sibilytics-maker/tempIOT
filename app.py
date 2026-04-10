@@ -93,7 +93,15 @@ while True:
             margin=dict(l=20, r=20, t=30, b=20),
             plot_bgcolor='rgba(0,0,0,0)',
             paper_bgcolor='rgba(0,0,0,0)',
-            yaxis=dict(showgrid=True, gridcolor='lightgray')
+            yaxis=dict(
+                showgrid=True, 
+                gridcolor='lightgray',
+                # This ensures the Y-axis zooms in on the data points
+                # instead of starting at zero.
+                autorange=True, 
+                fixedrange=False
+            ),
+            xaxis=dict(autorange=True)
         )
 
         with chart_place.container():
