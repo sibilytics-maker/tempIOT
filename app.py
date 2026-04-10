@@ -81,11 +81,20 @@ while True:
             line_shape='spline'
         )
         
+                # This update ensures markers are visible and rounded
         fig.update_traces(
+            mode='lines+markers', # This line is critical to show the round tips
+            fill='tozeroy',
             fillcolor='rgba(0, 100, 250, 0.2)',
             line=dict(color='rgba(0, 100, 250, 0.8)', width=3),
-            marker=dict(size=8, symbol='circle')
+            marker=dict(
+                size=10, 
+                symbol='circle', 
+                color='rgba(0, 100, 250, 1)', # Solid blue for the round tip
+                line=dict(width=2, color='White') # White border makes the tip pop
+            )
         )
+
         
         fig.update_layout(
             margin=dict(l=20, r=20, t=30, b=20),
