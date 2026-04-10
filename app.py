@@ -76,6 +76,7 @@ while True:
         # --- PROFESSIONAL CHART ---
         fig = go.Figure()
         fig.add_trace(go.Scatter(
+            x=df.index,  # <--- ADD THIS LINE
             y=df["Temperature"],
             mode='lines+markers',
             name="Temp",
@@ -91,7 +92,7 @@ while True:
             margin=dict(l=20, r=20, t=20, b=20),
             plot_bgcolor='white',
             paper_bgcolor='white',
-            xaxis=dict(title="Time (Samples)", showgrid=False, linecolor='lightgray'),
+            xaxis=dict(title="Time (Samples)", showgrid=False, linecolor='lightgray', range=[len(df) - 20, len(df)]),
             # THIS IS THE ADJUSTMENT:
             yaxis=dict(
                 title="Temperature (°C)", 
