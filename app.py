@@ -32,13 +32,22 @@ def on_message(client, userdata, msg):
     except: pass
 
 # --- MQTT SETUP ---
+# --- MQTT SETUP ---
 if "mqtt_client" not in st.session_state:
     client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2, userdata={'queue': st.session_state.data_queue})
     client.username_pw_set(MQTT_USER, MQTT_PASS)
     client.tls_set()
     client.on_message = on_message
+    
+    # ADD THIS TO SEE ERRORS IN LOGS
+    client.on_connect = lambda c, u, f, rc, p: print(f"Connected with result code {rc}")
+    
     client.connect(MQTT_BROKER, 8883)
-    client.subscribe(f"temperature/{device_id}")
+    
+    # CHANGE: Use wildcard # to see if ANY data arrives for this device
+    # If this works, your previous topic was wrong.
+    client.subscribe(f"temperature/{device_id}") 
+    
     client.loop_start()
     st.session_state.mqtt_client = client
 
