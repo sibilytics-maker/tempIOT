@@ -38,6 +38,16 @@ with st.sidebar:
             st.session_state.mqtt_client.publish("temperature/setThreshold", str(threshold_input))
             st.success(f"Threshold set to {threshold_input}°C")
             st.toast("Settings sent to device!", icon="✅")
+            
+    if st.sidebar.button("🛑 FORCE STOP BUZZER"):
+        st.session_state.mqtt_client.publish("temperature/buzzerControl", "OFF")
+        st.toast("Buzzer power cut!", icon="🔕")
+
+    if st.sidebar.button("✅ RESET AUTO-MODE"):
+        st.session_state.mqtt_client.publish("temperature/buzzerControl", "ON")
+        st.toast("Automatic control resumed", icon="🔄")
+
+                
 
 if "data_queue" not in st.session_state: st.session_state.data_queue = Queue()
 if "history" not in st.session_state: st.session_state.history = []
