@@ -134,13 +134,27 @@ while True:
         )
 
         # 4. Add "Alert" annotation if above threshold
+               # --- ALERT LOGIC (MATCH TO SIDEBAR) ---
         if current_temp >= threshold_input:
+            # Show red alert if temp is actually above your sidebar setting
             fig.add_annotation(
                 x=len(df)-1, y=current_temp,
                 text="⚠️ HIGH TEMP",
                 showarrow=True, arrowhead=1,
                 bgcolor="red", font=dict(color="white")
             )
+        else:
+            # Show green normal if temp is below your sidebar setting
+            fig.add_annotation(
+                x=len(df)-1, y=current_temp,
+                text="✅ NORMAL",
+                showarrow=True, arrowhead=1,
+                bgcolor="#28a745", font=dict(color="white")
+            )
+
+        # Add a dashed line on the chart to show exactly where the threshold is
+        fig.add_hline(y=threshold_input, line_dash="dash", line_color="red", opacity=0.5)
+
 
         with chart_place.container():
             st.plotly_chart(fig, use_container_width=True, key=f"t_{chart_count}", config={'displayModeBar': False})
