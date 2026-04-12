@@ -23,31 +23,37 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- UI HEADER ---
+# --- HEADER ---
 st.title(f"🌡️ {device_id}")
 st.markdown("---")
 
-# --- BUZZER CONTROL SIDEBAR ---
-with st.sidebar:
-    st.header("🚨 Alarm Settings")
-    st.write(f"Connected to: {device_id}")
-    threshold_input = st.number_input("Set Buzzer Threshold (°C)", min_value=0.0, max_value=100.0, value=45.0, step=0.5)
+# --- MOBILE FRIENDLY CONTROLS (Main Page) ---
+with st.container():
+    st.subheader("🚨 Buzzer & Alarm Controls")
     
-    if st.button("Update Threshold"):
-        # Send new threshold to the topic the ESP32 is listening to
-        if "mqtt_client" in st.session_state:
+    # Use columns for threshold input and button
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        threshold_input = st.number_input("Set Threshold (°C)", min_value=0.0, max_value=100.0, value=45.0)
+    with col2:
+        st.write("##") # Spacing
+        if st.button("Update"):
             st.session_state.mqtt_client.publish("temperature/setThreshold", str(threshold_input))
-            st.success(f"Threshold set to {threshold_input}°C")
-            st.toast("Settings sent to device!", icon="✅")
-            
-    if st.sidebar.button("🛑 FORCE STOP BUZZER"):
-        st.session_state.mqtt_client.publish("temperature/buzzerControl", "OFF")
-        st.toast("Buzzer power cut!", icon="🔕")
+            st.toast("Updated!", icon="✅")
 
-    if st.sidebar.button("✅ RESET AUTO-MODE"):
-        st.session_state.mqtt_client.publish("temperature/buzzerControl", "ON")
-        st.toast("Automatic control resumed", icon="🔄")
+    # Force Stop and Resume Buttons side-by-side
+    btn_col1, btn_col2 = st.columns(2)
+    with btn_col1:
+        if st.button("🛑 FORCE STOP", use_container_width=True):
+            st.session_state.mqtt_client.publish("temperature/buzzerControl", "OFF")
+    with btn_col2:
+        if st.button("🔄 RESUME AUTO", use_container_width=True):
+            st.session_state.mqtt_client.publish("temperature/buzzerControl", "ON")
 
-                
+st.markdown("---")
+
+
+               
 
 if "data_queue" not in st.session_state: st.session_state.data_queue = Queue()
 if "history" not in st.session_state: st.session_state.history = []
