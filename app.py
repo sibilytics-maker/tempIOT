@@ -87,36 +87,64 @@ while True:
             st.metric(label="Latest Reading", value=f"{current_temp:.2f} °C")
             
         # --- PROFESSIONAL CHART ---
+          # --- HIGHLY PROFESSIONAL CHART ---
         fig = go.Figure()
+
+        # 1. Add the Threshold Line (Visual Guide)
+        fig.add_shape(
+            type="line", line=dict(color="red", width=2, dash="dash"),
+            x0=0, x1=len(df), y0=threshold_input, y1=threshold_input
+        )
+
+        # 2. Add the Temperature Trace with Spline Smoothing
         fig.add_trace(go.Scatter(
             x=df.index,
             y=df["Temperature"],
-            mode='lines+markers',
-            name="Temp",
+            mode='lines',
+            name="Temperature",
+            line=dict(color='#007BFF', width=4, shape='spline'), # Spline makes it smooth
             fill='tozeroy',
-            fillcolor='rgba(59, 130, 246, 0.1)',
-            line=dict(color='#3b82f6', width=3),
-            marker=dict(size=10, color='#f59e0b', line=dict(width=2, color='white'))
+            fillcolor='rgba(0, 123, 255, 0.1)' # Light blue modern fill
         ))
-        
+
+        # 3. Modern Industrial Layout
         fig.update_layout(
             hovermode="x unified",
-            height=300,
-            margin=dict(l=20, r=20, t=20, b=20),
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            xaxis=dict(title="Time (Samples)", showgrid=False, linecolor='lightgray', range=[len(df) - 20, len(df)]),
-            yaxis=dict(
-                title="Temperature (°C)", 
-                showgrid=True, 
-                gridcolor='#f1f5f9', 
+            height=350,
+            margin=dict(l=10, r=10, t=10, b=10),
+            plot_bgcolor='rgba(0,0,0,0)', # Transparent background
+            paper_bgcolor='rgba(0,0,0,0)',
+            xaxis=dict(
+                showgrid=False, 
                 zeroline=False,
-                range=[min_temp - buffer, max_temp + buffer]
+                showline=True,
+                linecolor='lightgray',
+                title="Time (Last 50 Samples)"
             ),
+            yaxis=dict(
+                showgrid=True, 
+                gridcolor='#f0f0f0', # Subtle grid lines
+                zeroline=False,
+                showline=True,
+                linecolor='lightgray',
+                title="Temp (°C)",
+                range=[min_temp - 0.5, max_temp + 0.5] # Dynamic zoom
+            ),
+            showlegend=False
         )
 
+        # 4. Add "Alert" annotation if above threshold
+        if current_temp >= threshold_input:
+            fig.add_annotation(
+                x=len(df)-1, y=current_temp,
+                text="⚠️ HIGH TEMP",
+                showarrow=True, arrowhead=1,
+                bgcolor="red", font=dict(color="white")
+            )
+
         with chart_place.container():
-            st.plotly_chart(fig, use_container_width=True, key=f"t_{chart_count}")
+            st.plotly_chart(fig, use_container_width=True, key=f"t_{chart_count}", config={'displayModeBar': False})
             chart_count += 1
+
             
     time.sleep(1)
