@@ -128,7 +128,7 @@ while True:
                 showline=True,
                 linecolor='lightgray',
                 title="Temp (°C)",
-                range=[min_temp - 0.5, max_temp + 0.5] # Dynamic zoom
+                range=[min_temp - 2, max_temp + 2] # Dynamic zoom
             ),
             showlegend=False
         )
