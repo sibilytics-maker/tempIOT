@@ -7,8 +7,8 @@ from queue import Queue
 import plotly.graph_objects as go
 
 # --- CONFIGURATION ---
-MQTT_BROKER = "93be88c856bc40329b96e8fba46ac044.s1.eu.hivemq.cloud"
-MQTT_USER = "kundan"
+MQTT_BROKER = "3303e98efb894e9aae37b18b94dfca8a.s1.eu.hivemq.cloud"
+MQTT_USER = "kundaniot"
 MQTT_PASS = "Kundan@1985"
 
 params = st.query_params
