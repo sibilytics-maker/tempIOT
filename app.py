@@ -5,36 +5,64 @@ import json
 import pandas as pd
 import plotly.graph_objects as go
 from queue import Queue
-import os
 
 # --- CONFIG ---
 MQTT_BROKER = "metro.proxy.rlwy.net"
 MQTT_PORT = 55113
 
-st.set_page_config(page_title="IoT Monitor", layout="centered")
+st.set_page_config(page_title="IoT Monitor Pro", layout="centered")
 
-# Professional Styling
+# --- PROFESSIONAL STYLING (Fixed Buttons & UI) ---
 st.markdown("""
     <style>
-    .stButton>button { width: 100%; border-radius: 8px; height: 3.2em; font-weight: bold; }
-    /* Fix Set Button Visibility */
-    div[data-testid="stButton"] > button:contains("SET") { background-color: #007BFF; color: white; }
-    /* Force Stop Button Styling */
-    div[data-testid="stHeader"] { visibility: hidden; }
+    /* Main Background */
+    .stApp { background-color: #f8f9fa; }
+    
+    /* Button Styling */
+    .stButton>button {
+        width: 100%;
+        border-radius: 10px;
+        height: 3.5em;
+        font-weight: bold;
+        transition: 0.3s;
+        border: none;
+    }
+    /* Force Stop (Red) */
+    div[data-testid="stButton"] > button:contains("FORCE") {
+        background-color: #ff4b4b;
+        color: white;
+    }
+    /* Resume (Blue) */
+    div[data-testid="stButton"] > button:contains("RESUME") {
+        background-color: #007BFF;
+        color: white;
+    }
+    /* Set (Dark) */
+    div[data-testid="stButton"] > button:contains("SET") {
+        background-color: #343a40;
+        color: white;
+    }
+    /* WiFi Signal Header */
+    .wifi-status {
+        font-size: 24px;
+        float: right;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# Initialize Session States
+# --- STATE MANAGEMENT ---
 if "data_queue" not in st.session_state: st.session_state.data_queue = Queue()
 if "history" not in st.session_state: st.session_state.history = []
-if "last_seen" not in st.session_state: st.session_state.last_seen = 0
+if "last_seen" not in st.session_state: st.session_state.last_seen = time.time()
 
+# --- MQTT LOGIC (Thread-Safe) ---
 def on_message(client, userdata, msg):
     try:
-        st.session_state.last_seen = time.time() # Update WiFi Status timestamp
+        # Every message updates the "Last Seen" timestamp
+        st.session_state.last_seen = time.time()
         payload = json.loads(msg.payload.decode())
-        val = float(payload.get("temperature", 0.0))
-        userdata['queue'].put({"Temperature": val})
+        if "temperature" in payload:
+            userdata['queue'].put({"Temperature": float(payload["temperature"]), "Time": time.time()})
     except: pass
 
 if "mqtt_client" not in st.session_state:
@@ -45,79 +73,75 @@ if "mqtt_client" not in st.session_state:
     client.loop_start()
     st.session_state.mqtt_client = client
 
-# --- 1. HEADER & WIFI STATUS ---
-col_title, col_status = st.columns([4, 1])
-with col_title:
-    st.title(f"🌡️ sibiot233 Monitor")
+# --- 1. HEADER WITH WIFI SIGNAL ---
+col1, col2 = st.columns([4, 1])
+with col1:
+    st.title("🌡️ sibiot233 Monitoring")
+with col2:
+    # WiFi Strength Signal Logic
+    time_diff = time.time() - st.session_state.last_seen
+    if time_diff < 5:
+        st.markdown("<div class='wifi-status'>📶</div>", unsafe_allow_html=True)
+    elif time_diff < 15:
+        st.markdown("<div class='wifi-status'>⚠️</div>", unsafe_allow_html=True)
+    else:
+        st.markdown("<div class='wifi-status'>❌</div>", unsafe_allow_html=True)
 
-with col_status:
-    # WiFi Status Indicator (Offline if no message for 10 seconds)
-    is_online = (time.time() - st.session_state.last_seen) < 10
-    status_color = "🟢 Online" if is_online else "🔴 Offline"
-    st.write(f"**{status_color}**")
-
-# --- 2. LIVE FRAGMENT (Stable Axis) ---
-@st.fragment(run_every=1)
-def update_view():
+# --- 2. LIVE DATA FRAGMENT ---
+@st.fragment(run_every=2)
+def live_dashboard():
+    # Move data from queue to history
     while not st.session_state.data_queue.empty():
         item = st.session_state.data_queue.get()
         st.session_state.history.append(item)
-        if len(st.session_state.history) > 50: st.session_state.history.pop(0)
+        if len(st.session_state.history) > 40: st.session_state.history.pop(0)
 
     if st.session_state.history:
         df = pd.DataFrame(st.session_state.history)
         current_temp = df["Temperature"].iloc[-1]
-        st.metric(label="Live Temperature", value=f"{current_temp:.2f} °C")
-            
+        
+        st.metric("Live Temperature", f"{current_temp:.2f} °C")
+        
         fig = go.Figure()
         fig.add_trace(go.Scatter(
             x=list(range(len(df))), y=df["Temperature"],
-            mode='lines', line=dict(color='#007BFF', width=3, shape='spline'),
-            fill='tozeroy', fillcolor='rgba(0, 123, 255, 0.1)', name="Temp"
+            mode='lines', line=dict(color='#007BFF', width=4, shape='spline'),
+            fill='tozeroy', fillcolor='rgba(0, 123, 255, 0.1)'
         ))
         
-        # --- FIX: Stable Y-Axis (Less Jitter) ---
-        # Set a fixed range around the current average to reduce jitter
-        y_min = 20.0 # Standard low room temp
-        y_max = 80.0 # Standard high safety temp
-        if not df.empty:
-            y_min = max(0, df["Temperature"].min() - 5.0)
-            y_max = df["Temperature"].max() + 5.0
-
+        # Stabilized Y-Axis (Padding of 2 degrees)
+        y_min, y_max = df["Temperature"].min() - 2, df["Temperature"].max() + 2
+        
         fig.update_layout(
-            height=350, margin=dict(l=10, r=10, t=10, b=10), plot_bgcolor='white',
-            xaxis=dict(showgrid=False, range=[max(0, len(df)-30), len(df)-1]),
-            yaxis=dict(title="Temp (°C)", showgrid=True, range=[y_min, y_max])
+            height=300, margin=dict(l=0, r=0, t=0, b=0), plot_bgcolor='white',
+            xaxis=dict(showgrid=False, range=[max(0, len(df)-25), len(df)-1]),
+            yaxis=dict(showgrid=True, gridcolor='#f0f0f0', range=[y_min, y_max])
         )
         st.plotly_chart(fig, use_container_width=True)
 
-update_view()
+live_dashboard()
 
-st.markdown("---")
-
-# --- 3. SYSTEM CONTROLS (Improved Reliability) ---
+# --- 3. SYSTEM CONTROLS (Manual Triggers) ---
 st.subheader("⚙️ System Controls")
-    
-col_input, col_btn = st.columns([3, 1])
-with col_input:
+
+# Using a form ensures the buttons don't flicker the chart
+with st.form("control_form", clear_on_submit=False):
     threshold = st.number_input("Buzzer Threshold (°C)", value=60.0, step=0.5)
-with col_btn:
-    st.write("##") 
-    # Use a unique key to prevent the button from disappearing
-    if st.button("SET", type="primary", key="set_btn"):
+    submit = st.form_submit_button("UPDATE SETTINGS")
+    if submit:
         st.session_state.mqtt_client.publish("temperature/setThreshold", str(threshold))
-        st.toast("Threshold Updated ✅")
+        st.toast("Settings Saved")
 
-st.write("##") # Spacing for layout
+st.write("") # Spacing
 
-btn_stop, btn_resume = st.columns(2)
-with btn_stop:
-    if st.button("🛑 FORCE STOP", key="stop_btn"):
-        # We publish twice to ensure the broker receives it during refresh
+# Dedicated Control Row (Outside the fragment for reliability)
+col_stop, col_resume = st.columns(2)
+with col_stop:
+    if st.button("🛑 FORCE STOP", key="stop"):
         st.session_state.mqtt_client.publish("temperature/buzzerControl", "OFF")
-        st.toast("Buzzer Force-Stopped 🔕")
+        st.toast("Buzzer OFF Command Sent")
 
-with btn_resume:
-    if st.button("🔄 RESUME AUTO", key="resume_btn"):
+with col_resume:
+    if st.button("🔄 RESUME AUTO", key="resume"):
         st.session_state.mqtt_client.publish("temperature/buzzerControl", "ON")
-        st.toast("Auto-Mode Active 🔄")
+        st.toast("Auto Mode Command Sent")
