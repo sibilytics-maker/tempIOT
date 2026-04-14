@@ -1,4 +1,7 @@
-streamlit
-paho-mqtt
-pandas
-plotly
+    streamlit
+    paho-mqtt
+    pandas
+    plotly
+    uvicorn
+    fastapi
+    
