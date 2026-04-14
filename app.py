@@ -40,12 +40,15 @@ if "last_seen" not in st.session_state: st.session_state.last_seen = time.time()
 
 # --- MQTT LOGIC ---
 def on_message(client, userdata, msg):
+    # Update timestamp first so "Online" icon works immediately
+    st.session_state.last_seen = time.time() 
     try:
-        st.session_state.last_seen = time.time()
         payload = json.loads(msg.payload.decode())
         if "temperature" in payload:
             userdata['queue'].put({"Temperature": float(payload["temperature"]), "Time": time.time()})
-    except: pass
+    except Exception as e:
+        print(f"JSON Error: {e}") # This helps you debug the ESP32 output
+
 
 if "mqtt_client" not in st.session_state:
     client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2, userdata={'queue': st.session_state.data_queue})
