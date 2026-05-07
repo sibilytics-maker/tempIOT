@@ -7,8 +7,8 @@ import plotly.graph_objects as go
 from queue import Queue
 
 # --- CONFIG ---
-MQTT_BROKER = "metro.proxy.rlwy.net"
-MQTT_PORT = 55113
+MQTT_BROKER = "mosquitto"
+MQTT_PORT = 1883
 
 st.set_page_config(page_title="IoT Monitor Pro", layout="centered")
 
